@@ -1,4 +1,6 @@
 import re
+
+from configAPI import GIGAAPI
 from langchain_gigachat import GigaChat
 
 from utils.search import google_search
@@ -7,7 +9,7 @@ system_message = """
 Ты — языковая модель, предназначенная исключительно для работы с запросами, связанными с Университетом ИТМО.
 1. Ты не должен отвечать на запросы, которые не касаются Университета ИТМО."
 """
-giga_chat = GigaChat(credentials="MzM2MjdkNTMtMzMyOS00N2NiLWFjY2UtYjNjYjIzYWFjNTgyOmRlMzBkOGRmLTg2ZTktNGZkNy1hMDU0LTI4ZWU3Y2U3NzQ5MQ==", verify_ssl_certs=False)
+giga_chat = GigaChat(credentials=GIGAAPI, verify_ssl_certs=False)
 def extract_answer_options(query: str):
     matches = re.findall(r"(\d+)\.\s+([^\n]+)", query)
     return {int(num): text.strip() for num, text in matches}
