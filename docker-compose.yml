@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   fastapi-service:
     build: .
@@ -11,12 +9,18 @@ services:
       - TZ=UTC
     volumes:
       - ./logs:/app/logs
-    # Если нужно GPU
-    # runtime: nvidia
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: all
-    #           capabilities: [gpu]
+    depends_on:
+      - redis
+    networks:
+      - app-network
+
+  redis:
+    image: "redis:alpine"
+    container_name: redis-cache
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

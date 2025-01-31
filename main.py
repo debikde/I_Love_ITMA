@@ -1,28 +1,25 @@
+import logging
 import time
-from typing import List
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request, Response
-from pydantic import HttpUrl
 from schemas.request import PredictionRequest, PredictionResponse
-from utils.logger import setup_logger
-
-# Initialize
+from utils.model import main_agent
 app = FastAPI()
-logger = None
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-@app.on_event("startup")
-async def startup_event():
-    global logger
-    logger = await setup_logger()
-
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
-
     body = await request.body()
-    await logger.info(
+    logger.info(
         f"Incoming request: {request.method} {request.url}\n"
         f"Request body: {body.decode()}"
     )
@@ -34,7 +31,7 @@ async def log_requests(request: Request, call_next):
     async for chunk in response.body_iterator:
         response_body += chunk
 
-    await logger.info(
+    logger.info(
         f"Request completed: {request.method} {request.url}\n"
         f"Status: {response.status_code}\n"
         f"Response body: {response_body.decode()}\n"
@@ -52,26 +49,25 @@ async def log_requests(request: Request, call_next):
 @app.post("/api/request", response_model=PredictionResponse)
 async def predict(body: PredictionRequest):
     try:
-        await logger.info(f"Processing prediction request with id: {body.id}")
-        # Здесь будет вызов вашей модели
-        answer = 1  # Замените на реальный вызов модели
-        sources: List[HttpUrl] = [
-            HttpUrl("https://itmo.ru/ru/"),
-            HttpUrl("https://abit.itmo.ru/"),
-        ]
+        logger.info(f"Processing prediction request with id: {body.id}")
+        answer, explanation, search_results = main_agent(body.query)
+        print(answer)
+        print(explanation)
 
         response = PredictionResponse(
             id=body.id,
             answer=answer,
-            reasoning="Из информации на сайте",
-            sources=sources,
+            reasoning=explanation,
+            sources=search_results
         )
-        await logger.info(f"Successfully processed request {body.id}")
+
+        logger.info(f"Successfully processed request {body.id}")
         return response
+
     except ValueError as e:
         error_msg = str(e)
-        await logger.error(f"Validation error for request {body.id}: {error_msg}")
+        logger.error(f"Validation error for request {body.id}: {error_msg}")
         raise HTTPException(status_code=400, detail=error_msg)
     except Exception as e:
-        await logger.error(f"Internal error processing request {body.id}: {str(e)}")
+        logger.error(f"Internal error processing request {body.id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
